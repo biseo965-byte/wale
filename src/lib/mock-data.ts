@@ -227,6 +227,33 @@ export function fetchForecast(spotId: string): Promise<SpotForecast> {
   return Promise.resolve(generateForecast(spotId));
 }
 
+/**
+ * 데이터가 존재하는 날짜 목록 조회 ("yyyy-MM-dd" 배열)
+ * - Supabase: zone_slots 테이블의 distinct pick_date
+ * - mock: 오늘부터 14일
+ */
+export async function fetchAvailableDates(): Promise<string[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("zone_slots")
+        .select("pick_date")
+        .order("pick_date");
+
+      if (!error && data && data.length > 0) {
+        return [...new Set(data.map((r) => r.pick_date as string))];
+      }
+    } catch {
+      // fallback to mock
+    }
+  }
+
+  // mock: 오늘부터 14일
+  return Array.from({ length: 15 }, (_, i) =>
+    format(addDays(new Date(), i), "yyyy-MM-dd")
+  );
+}
+
 // ── 상수 ─────────────────────────────────────────────────────────────
 
 export const SPOTS = [

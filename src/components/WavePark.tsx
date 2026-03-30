@@ -1,13 +1,25 @@
 import { useState, useEffect, useRef } from "react";
-import { addDays, format, isToday, isSameDay } from "date-fns";
+import { format, isToday, isSameDay, parseISO } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronDown, ChevronUp, Users, BookOpen } from "lucide-react";
-import { fetchSessions, Session, WAVE_TAG_LEGEND, WaveTag } from "@/lib/mock-data";
+import { Users, BookOpen } from "lucide-react";
+import { fetchSessions, fetchAvailableDates, Session, WaveTag } from "@/lib/mock-data";
 
+// 난이도별 배지 색상: 초급=파랑, 중급=노랑, 상급=빨강
 const difficultyColor: Record<string, string> = {
-  초급: "bg-emerald-light text-emerald",
-  중급: "bg-ocean-light text-ocean",
+  초급: "bg-ocean-light text-ocean",
+  중급: "bg-yellow-light text-yellow",
   상급: "bg-danger-light text-danger",
+};
+
+// wave tag 색상: M(머신)=파랑 계열, T(튜브)=주황 계열, 숫자가 클수록 진함
+const waveTagStyle: Record<WaveTag, string> = {
+  M1: "bg-sky-50   border border-sky-200  text-sky-500",
+  M2: "bg-sky-100  border border-sky-300  text-sky-600",
+  M3: "bg-blue-100 border border-blue-300 text-blue-600",
+  M4: "bg-blue-200 border border-blue-400 text-blue-700",
+  T1: "bg-orange-50  border border-orange-200 text-orange-500",
+  T2: "bg-orange-100 border border-orange-300 text-orange-600",
+  T6: "bg-orange-200 border border-orange-400 text-orange-700",
 };
 
 function StatusBadge({ remaining, capacity }: { remaining: number; capacity: number }) {
@@ -64,9 +76,12 @@ function SessionCard({ session }: { session: Session }) {
             {session.difficulty}
           </span>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap justify-end">
           {session.waveTags.map((tag) => (
-            <span key={tag} className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono font-medium text-muted-foreground">
+            <span
+              key={tag}
+              className={`px-1.5 py-0.5 rounded-md text-[11px] font-mono font-bold tracking-wide ${waveTagStyle[tag]}`}
+            >
               {tag}
             </span>
           ))}
@@ -85,32 +100,52 @@ function SessionCard({ session }: { session: Session }) {
 }
 
 export default function WavePark() {
-  const today = new Date();
-  const dates = Array.from({ length: 15 }, (_, i) => addDays(today, i - 7));
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [availableDates, setAvailableDates] = useState<Date[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [legendOpen, setLegendOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // 데이터 있는 날짜 로드
   useEffect(() => {
+    fetchAvailableDates().then((dateStrs) => {
+      const dates = dateStrs.map((s) => parseISO(s));
+      setAvailableDates(dates);
+
+      // 오늘이 목록에 있으면 오늘 선택, 없으면 첫 번째 날짜 선택
+      const today = new Date();
+      const todayStr = format(today, "yyyy-MM-dd");
+      const initial = dateStrs.includes(todayStr) ? today : dates[0] ?? null;
+      setSelectedDate(initial);
+    });
+  }, []);
+
+  // 선택 날짜 변경 시 세션 로드
+  useEffect(() => {
+    if (!selectedDate) return;
     fetchSessions(selectedDate).then(setSessions);
   }, [selectedDate]);
 
+  // 선택 날짜로 스크롤
   useEffect(() => {
-    if (scrollRef.current) {
-      const active = scrollRef.current.querySelector("[data-active='true']") as HTMLElement;
-      if (active) {
-        active.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
-      }
-    }
-  }, []);
+    if (!scrollRef.current || !selectedDate) return;
+    const active = scrollRef.current.querySelector("[data-active='true']") as HTMLElement;
+    if (active) active.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
+  }, [availableDates, selectedDate]);
+
+  if (availableDates.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
+        날짜 정보를 불러오는 중...
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Date chips */}
+      {/* 데이터 있는 날짜 chips */}
       <div ref={scrollRef} className="flex gap-2 overflow-x-auto hide-scrollbar py-1 -mx-4 px-4">
-        {dates.map((d) => {
-          const active = isSameDay(d, selectedDate);
+        {availableDates.map((d) => {
+          const active    = selectedDate ? isSameDay(d, selectedDate) : false;
           const todayChip = isToday(d);
           return (
             <button
@@ -131,30 +166,15 @@ export default function WavePark() {
         })}
       </div>
 
-      {/* Wave tag legend */}
-      <button
-        onClick={() => setLegendOpen(!legendOpen)}
-        className="flex items-center gap-1 text-xs text-muted-foreground self-start"
-      >
-        파도 타입 범례
-        {legendOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-      </button>
-      {legendOpen && (
-        <div className="bg-card rounded-2xl p-3 border border-border grid grid-cols-2 gap-1.5 text-xs text-muted-foreground">
-          {(Object.entries(WAVE_TAG_LEGEND) as [WaveTag, string][]).map(([tag, desc]) => (
-            <div key={tag} className="flex items-center gap-1.5">
-              <span className="font-mono font-semibold text-foreground">{tag}</span>
-              <span>{desc}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Session cards */}
       <div className="flex flex-col gap-3">
-        {sessions.map((s) => (
-          <SessionCard key={s.id} session={s} />
-        ))}
+        {sessions.length === 0 && selectedDate ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+            세션 정보가 없습니다
+          </div>
+        ) : (
+          sessions.map((s) => <SessionCard key={s.id} session={s} />)
+        )}
       </div>
     </div>
   );
