@@ -242,13 +242,13 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
     gcTime: Infinity,
   });
 
-  // 갱신시각 — 날짜별 캐시 유지
+  // 갱신시각 — 5분마다 자동 재조회 (스크래퍼 갱신 주기와 동기화)
   const { data: lastUpdated } = useQuery({
     queryKey: ["lastUpdated", dateKey],
     queryFn: () => fetchLastUpdated(selectedDate!),
     enabled: !!selectedDate,
-    staleTime: Infinity,
-    gcTime: Infinity,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 
   const handleDateSelect = (d: Date) => {

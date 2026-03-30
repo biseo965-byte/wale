@@ -237,7 +237,7 @@ export function fetchForecast(spotId: string): Promise<SpotForecast> {
 
 /**
  * 선택 날짜의 마지막 스크래핑 시각 조회 (ISO string)
- * - Supabase: zone_slots.scraped_at MAX 값
+ * - Supabase: sessions.scraped_at MAX 값
  * - mock: 현재 시각
  */
 export async function fetchLastUpdated(date: Date): Promise<string> {
@@ -246,7 +246,7 @@ export async function fetchLastUpdated(date: Date): Promise<string> {
   if (supabase) {
     try {
       const { data, error } = await supabase
-        .from("zone_slots")
+        .from("sessions")
         .select("scraped_at")
         .eq("pick_date", dateStr)
         .order("scraped_at", { ascending: false })
