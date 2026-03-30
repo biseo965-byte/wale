@@ -2,16 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { format, isToday, isSameDay, parseISO } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Users, BookOpen, RefreshCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchSessions, fetchAvailableDates, fetchLastUpdated, Session, WaveTag } from "@/lib/mock-data";
 
-// 난이도별 배지 색상: 초급=파랑, 중급=노랑, 상급=빨강
+// 난이도별 배지 색상
 const difficultyColor: Record<string, string> = {
   초급: "bg-ocean-light text-ocean",
   중급: "bg-yellow-light text-yellow",
   상급: "bg-danger-light text-danger",
 };
 
-// wave tag 색상: M(머신)=파랑 계열, T(튜브)=주황 계열, 숫자가 클수록 진함
 const waveTagStyle: Record<WaveTag, string> = {
   M1: "bg-sky-50   border border-sky-200  text-sky-500",
   M2: "bg-sky-100  border border-sky-300  text-sky-600",
@@ -26,13 +26,11 @@ interface WaveParkProps {
   onDateChange?: (date: Date) => void;
 }
 
-// 레슨 시간 + 1시간 → 병합 대상 자유서핑 시간
 function addOneHour(time: string): string {
   const [h, m] = time.split(":").map(Number);
   return `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-// 레슨 세션을 해당 자유서핑 세션(+1시간, 초급)에 병합하고 독립 레슨 세션 제거
 function mergeAndFilterSessions(raw: Session[]): Session[] {
   const lessonSessions = raw.filter((s) => s.lesson !== undefined);
   const freeSurfs      = raw.filter((s) => s.lesson === undefined);
@@ -45,7 +43,6 @@ function mergeAndFilterSessions(raw: Session[]): Session[] {
     );
     if (!mergeLesson?.lesson) return session;
 
-    // 좌코브 → 레슨, 우코브 → 자유서핑 유지
     return {
       ...session,
       lesson: mergeLesson.lesson,
@@ -126,13 +123,11 @@ function SessionCard({ session }: { session: Session }) {
       <div className="flex items-center gap-3">
         <Users className="w-4 h-4 text-muted-foreground shrink-0" />
         {session.lesson ? (
-          // 레슨 병합: 좌=레슨, 우=자유서핑
           <>
             <LessonCoveBar lesson={session.lesson} />
             <CoveBar label="우코브" remaining={session.rightCove.remaining} capacity={session.rightCove.capacity} />
           </>
         ) : (
-          // 일반: 좌/우 자유서핑
           <>
             <CoveBar label="좌코브" remaining={session.leftCove.remaining} capacity={session.leftCove.capacity} />
             <CoveBar label="우코브" remaining={session.rightCove.remaining} capacity={session.rightCove.capacity} />
@@ -143,45 +138,97 @@ function SessionCard({ session }: { session: Session }) {
   );
 }
 
+function SessionSkeleton() {
+  return (
+    <div className="bg-card rounded-2xl p-4 shadow-sm border border-border animate-pulse">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="h-5 w-12 bg-muted rounded" />
+          <div className="h-5 w-10 bg-muted rounded-full" />
+        </div>
+        <div className="flex gap-1">
+          <div className="h-5 w-8 bg-muted rounded-md" />
+          <div className="h-5 w-8 bg-muted rounded-md" />
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="w-4 h-4 bg-muted rounded shrink-0" />
+        <div className="flex-1 space-y-1">
+          <div className="flex justify-between">
+            <div className="h-3 w-10 bg-muted rounded" />
+            <div className="h-3 w-8 bg-muted rounded" />
+          </div>
+          <div className="h-1.5 w-full bg-muted rounded-full" />
+        </div>
+        <div className="flex-1 space-y-1">
+          <div className="flex justify-between">
+            <div className="h-3 w-10 bg-muted rounded" />
+            <div className="h-3 w-8 bg-muted rounded" />
+          </div>
+          <div className="h-1.5 w-full bg-muted rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WavePark({ onDateChange }: WaveParkProps) {
-  const [availableDates, setAvailableDates] = useState<Date[]>([]);
-  const [selectedDate, setSelectedDate]     = useState<Date | null>(null);
-  const [sessions, setSessions]             = useState<Session[]>([]);
-  const [lastUpdated, setLastUpdated]       = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 데이터 있는 날짜 목록 — 새로고침 전까지 캐시 유지
+  const { data: availableDates = [] } = useQuery({
+    queryKey: ["availableDates"],
+    queryFn: async () => {
+      const dateStrs = await fetchAvailableDates();
+      return dateStrs.map((s) => parseISO(s));
+    },
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+
+  // 초기 날짜 설정
+  useEffect(() => {
+    if (availableDates.length === 0 || selectedDate) return;
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const initial  = availableDates.find((d) => format(d, "yyyy-MM-dd") === todayStr)
+      ?? availableDates[0];
+    if (initial) {
+      setSelectedDate(initial);
+      onDateChange?.(initial);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableDates]);
+
+  const dateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
+
+  // 세션 — 날짜별 캐시 유지
+  const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
+    queryKey: ["sessions", dateKey],
+    queryFn: async () => {
+      const raw = await fetchSessions(selectedDate!);
+      return mergeAndFilterSessions(raw);
+    },
+    enabled: !!selectedDate,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+
+  // 갱신시각 — 날짜별 캐시 유지
+  const { data: lastUpdated } = useQuery({
+    queryKey: ["lastUpdated", dateKey],
+    queryFn: () => fetchLastUpdated(selectedDate!),
+    enabled: !!selectedDate,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
 
   const handleDateSelect = (d: Date) => {
     setSelectedDate(d);
     onDateChange?.(d);
   };
 
-  useEffect(() => {
-    fetchAvailableDates().then((dateStrs) => {
-      const dates   = dateStrs.map((s) => parseISO(s));
-      setAvailableDates(dates);
-
-      const today    = new Date();
-      const todayStr = format(today, "yyyy-MM-dd");
-      const initial  = dateStrs.includes(todayStr) ? today : dates[0] ?? null;
-
-      if (initial) {
-        setSelectedDate(initial);
-        onDateChange?.(initial);
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!selectedDate) return;
-
-    setSessions([]);
-    setLastUpdated(null);
-
-    fetchSessions(selectedDate).then((raw) => setSessions(mergeAndFilterSessions(raw)));
-    fetchLastUpdated(selectedDate).then(setLastUpdated);
-  }, [selectedDate]);
-
+  // 선택 날짜로 스크롤
   useEffect(() => {
     if (!scrollRef.current || !selectedDate) return;
     const active = scrollRef.current.querySelector("[data-active='true']") as HTMLElement;
@@ -242,7 +289,10 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
 
       {/* Session cards */}
       <div className="flex flex-col gap-3">
-        {sessions.length === 0 && selectedDate ? (
+        {sessionsLoading ? (
+          // 로딩 스켈레톤
+          Array.from({ length: 4 }).map((_, i) => <SessionSkeleton key={i} />)
+        ) : sessions.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
             세션 정보가 없습니다
           </div>
