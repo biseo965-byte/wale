@@ -310,7 +310,6 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
             : <span className="animate-pulse">불러오는 중...</span>
           }
         </div>
-        <span className="text-[10px] text-muted-foreground/50">데이터는 5분마다 갱신됩니다</span>
       </div>
 
       {/* Session cards */}
