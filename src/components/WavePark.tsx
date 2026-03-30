@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { format, isToday, isSameDay, parseISO } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Users, BookOpen } from "lucide-react";
-import { fetchSessions, fetchAvailableDates, Session, WaveTag } from "@/lib/mock-data";
+import { Users, BookOpen, RefreshCw } from "lucide-react";
+import { fetchSessions, fetchAvailableDates, fetchLastUpdated, Session, WaveTag } from "@/lib/mock-data";
 
 // 난이도별 배지 색상: 초급=파랑, 중급=노랑, 상급=빨강
 const difficultyColor: Record<string, string> = {
@@ -21,6 +21,10 @@ const waveTagStyle: Record<WaveTag, string> = {
   T2: "bg-orange-100 border border-orange-300 text-orange-600",
   T6: "bg-orange-200 border border-orange-400 text-orange-700",
 };
+
+interface WaveParkProps {
+  onDateChange?: (date: Date) => void;
+}
 
 function StatusBadge({ remaining, capacity }: { remaining: number; capacity: number }) {
   if (remaining === 0) return <span className="text-xs font-semibold text-danger">마감</span>;
@@ -99,11 +103,18 @@ function SessionCard({ session }: { session: Session }) {
   );
 }
 
-export default function WavePark() {
+export default function WavePark({ onDateChange }: WaveParkProps) {
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions]         = useState<Session[]>([]);
+  const [lastUpdated, setLastUpdated]   = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 날짜 선택 핸들러 — 부모에도 전달
+  const handleDateSelect = (d: Date) => {
+    setSelectedDate(d);
+    onDateChange?.(d);
+  };
 
   // 데이터 있는 날짜 로드
   useEffect(() => {
@@ -111,18 +122,27 @@ export default function WavePark() {
       const dates = dateStrs.map((s) => parseISO(s));
       setAvailableDates(dates);
 
-      // 오늘이 목록에 있으면 오늘 선택, 없으면 첫 번째 날짜 선택
-      const today = new Date();
+      const today    = new Date();
       const todayStr = format(today, "yyyy-MM-dd");
-      const initial = dateStrs.includes(todayStr) ? today : dates[0] ?? null;
-      setSelectedDate(initial);
+      const initial  = dateStrs.includes(todayStr) ? today : dates[0] ?? null;
+
+      if (initial) {
+        setSelectedDate(initial);
+        onDateChange?.(initial);
+      }
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 선택 날짜 변경 시 세션 로드
+  // 선택 날짜 변경 시 세션 + 갱신시각 로드
   useEffect(() => {
     if (!selectedDate) return;
+
+    setSessions([]);
+    setLastUpdated(null);
+
     fetchSessions(selectedDate).then(setSessions);
+    fetchLastUpdated(selectedDate).then(setLastUpdated);
   }, [selectedDate]);
 
   // 선택 날짜로 스크롤
@@ -131,6 +151,16 @@ export default function WavePark() {
     const active = scrollRef.current.querySelector("[data-active='true']") as HTMLElement;
     if (active) active.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
   }, [availableDates, selectedDate]);
+
+  // 갱신시각 포맷 — 오늘이면 "HH:mm", 다른 날이면 "M/d HH:mm"
+  const updatedLabel = (() => {
+    if (!lastUpdated) return null;
+    const d = new Date(lastUpdated);
+    const isCurrentDay = selectedDate && isSameDay(d, selectedDate);
+    return isCurrentDay
+      ? format(d, "HH:mm", { locale: ko })
+      : format(d, "M/d HH:mm", { locale: ko });
+  })();
 
   if (availableDates.length === 0) {
     return (
@@ -151,7 +181,7 @@ export default function WavePark() {
             <button
               key={d.toISOString()}
               data-active={active}
-              onClick={() => setSelectedDate(d)}
+              onClick={() => handleDateSelect(d)}
               className={`shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                 active
                   ? "bg-primary text-primary-foreground shadow-md"
@@ -164,6 +194,15 @@ export default function WavePark() {
             </button>
           );
         })}
+      </div>
+
+      {/* 마지막 갱신시각 */}
+      <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70 self-end pr-1">
+        <RefreshCw className="w-3 h-3" />
+        {updatedLabel
+          ? <span>갱신 {updatedLabel}</span>
+          : <span className="animate-pulse">불러오는 중...</span>
+        }
       </div>
 
       {/* Session cards */}

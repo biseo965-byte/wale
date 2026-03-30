@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import WavePark from "@/components/WavePark";
 
 export default function Index() {
-  const [tab, setTab] = useState<"wavepark">("wavepark");
+  const [tab, setTab]               = useState<"wavepark">("wavepark");
+  const [displayDate, setDisplayDate] = useState<Date>(new Date());
 
   const handleSurfSpotClick = () => {
     toast("서핑스팟은 추후 오픈 예정이에요 🏄", {
@@ -36,14 +37,22 @@ export default function Index() {
               </span>
             </div>
           </div>
-          <span className="text-sm text-muted-foreground">
-            {format(new Date(), "yyyy년 M월 d일 (EEE)", { locale: ko })}
-          </span>
+
+          {/* 선택된 날짜 — 날짜 칩 선택 시 업데이트 */}
+          <div className="text-right">
+            <span className="text-sm font-medium text-foreground">
+              {format(displayDate, "M월 d일 (EEE)", { locale: ko })}
+            </span>
+            <br />
+            <span className="text-[11px] text-muted-foreground">
+              {format(displayDate, "yyyy")}
+            </span>
+          </div>
         </header>
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto px-4 py-4 pb-24">
-          <WavePark />
+          <WavePark onDateChange={setDisplayDate} />
         </main>
 
         {/* Bottom tabs */}

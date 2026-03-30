@@ -228,6 +228,35 @@ export function fetchForecast(spotId: string): Promise<SpotForecast> {
 }
 
 /**
+ * 선택 날짜의 마지막 스크래핑 시각 조회 (ISO string)
+ * - Supabase: zone_slots.scraped_at MAX 값
+ * - mock: 현재 시각
+ */
+export async function fetchLastUpdated(date: Date): Promise<string> {
+  const dateStr = format(date, "yyyy-MM-dd");
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("zone_slots")
+        .select("scraped_at")
+        .eq("pick_date", dateStr)
+        .order("scraped_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!error && data?.scraped_at) {
+        return data.scraped_at as string;
+      }
+    } catch {
+      // fallback to mock
+    }
+  }
+
+  return new Date().toISOString();
+}
+
+/**
  * 데이터가 존재하는 날짜 목록 조회 ("yyyy-MM-dd" 배열)
  * - Supabase: zone_slots 테이블의 distinct pick_date
  * - mock: 오늘부터 14일
