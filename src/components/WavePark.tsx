@@ -117,7 +117,7 @@ function SessionCard({ session }: { session: Session }) {
           {session.waveTags.map((tag) => (
             <span
               key={tag}
-              className={`px-1.5 py-0.5 rounded-md text-[11px] font-mono font-bold tracking-wide ${waveTagStyle[tag]}`}
+              className={`px-2 py-0.5 rounded-md text-xs font-mono font-bold tracking-wide ${waveTagStyle[tag]}`}
             >
               {tag}
             </span>
@@ -263,14 +263,9 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
     if (active) active.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
   }, [availableDates, selectedDate]);
 
-  const updatedLabel = (() => {
-    if (!lastUpdated) return null;
-    const d = new Date(lastUpdated);
-    const isCurrentDay = selectedDate && isSameDay(d, selectedDate);
-    return isCurrentDay
-      ? format(d, "HH:mm", { locale: ko })
-      : format(d, "M/d HH:mm", { locale: ko });
-  })();
+  const updatedLabel = lastUpdated
+    ? format(new Date(lastUpdated), "M/d HH:mm", { locale: ko })
+    : null;
 
   if (availableDates.length === 0) {
     return (
@@ -306,13 +301,16 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
         })}
       </div>
 
-      {/* 마지막 갱신시각 */}
-      <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70 self-end pr-1">
-        <RefreshCw className="w-3 h-3" />
-        {updatedLabel
-          ? <span>갱신 {updatedLabel}</span>
-          : <span className="animate-pulse">불러오는 중...</span>
-        }
+      {/* 마지막 갱신시각 + 안내 문구 */}
+      <div className="flex flex-col items-end gap-0.5 pr-1">
+        <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
+          <RefreshCw className="w-3 h-3" />
+          {updatedLabel
+            ? <span>갱신 {updatedLabel}</span>
+            : <span className="animate-pulse">불러오는 중...</span>
+          }
+        </div>
+        <span className="text-[10px] text-muted-foreground/50">데이터는 5분마다 갱신됩니다</span>
       </div>
 
       {/* Session cards */}
