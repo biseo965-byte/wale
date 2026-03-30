@@ -1,0 +1,35 @@
+# 빌드 결과물
+dist
+dist-ssr
+
+# 의존성
+node_modules
+__pycache__
+*.pyc
+
+# 환경변수 (Supabase 키 등 민감 정보)
+.env.local
+.env.*.local
+
+# 에디터
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 로그
+*.log
+npm-debug.log*
+
+# Python 스크래퍼 출력물
+*.json.bak
+result.json
+wale.db

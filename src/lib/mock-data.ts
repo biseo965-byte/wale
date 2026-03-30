@@ -1,4 +1,7 @@
 import { addDays, format, startOfDay } from "date-fns";
+import { supabase } from "./supabase";
+
+// ── 타입 ──────────────────────────────────────────────────────────────
 
 export type WaveTag = "M1" | "M2" | "M3" | "M4" | "T1" | "T2" | "T6";
 export type Difficulty = "초급" | "중급" | "상급";
@@ -6,7 +9,7 @@ export type Difficulty = "초급" | "중급" | "상급";
 export interface LessonBlock {
   remaining: number;
   capacity: number;
-  cove: "left" | "right" | null; // null = 미정
+  cove: "left" | "right" | null;
 }
 
 export interface Session {
@@ -39,8 +42,53 @@ export interface SpotForecast {
   forecast: ForecastPoint[];
 }
 
-const waveTags: WaveTag[] = ["M1", "M2", "M3", "M4", "T1", "T2", "T6"];
-const difficulties: Difficulty[] = ["초급", "중급", "상급"];
+// ── wave 스케줄 (wavepark_seasons.json 과 동기화) ─────────────────────
+// 시즌 스케줄 변경 시 wavepark_seasons.json 과 함께 수정
+
+const WAVE_SCHEDULE: Record<"weekday" | "weekend", Record<string, WaveTag[]>> = {
+  weekday: {
+    "09:00": ["M1", "M2"],
+    "10:00": ["M2", "M3"],
+    "11:00": ["M3", "T1"],
+    "12:00": ["M1", "M2"],
+    "13:00": ["M3", "M4"],
+    "14:00": ["M4", "T2"],
+    "15:00": ["T1", "T2"],
+    "16:00": ["M3", "T6"],
+    "17:00": ["T2", "T6"],
+  },
+  weekend: {
+    "09:00": ["M2", "M3"],
+    "10:00": ["M3", "M4"],
+    "11:00": ["M4", "T1"],
+    "12:00": ["M2", "M3"],
+    "13:00": ["M4", "T2"],
+    "14:00": ["T1", "T2"],
+    "15:00": ["T2", "T6"],
+    "16:00": ["M3", "T6"],
+    "17:00": ["T1", "T6"],
+  },
+};
+
+function getWaveTags(dateStr: string, time: string): WaveTag[] {
+  const dow = new Date(dateStr).getDay(); // 0=일, 6=토
+  const dayType = dow === 0 || dow === 6 ? "weekend" : "weekday";
+  return WAVE_SCHEDULE[dayType][time] ?? [];
+}
+
+// ── mock 데이터 생성 ──────────────────────────────────────────────────
+
+const TIME_SLOTS = [
+  "09:00", "10:00", "11:00", "12:00",
+  "13:00", "14:00", "15:00", "16:00", "17:00",
+];
+
+const DIFFICULTIES: { name: Difficulty; capacity: number }[] = [
+  { name: "초급", capacity: 25 },
+  { name: "중급", capacity: 25 },
+  { name: "상급", capacity: 17 },
+];
+
 const windDirs = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
 
 function seededRandom(seed: number) {
@@ -54,42 +102,36 @@ function seededRandom(seed: number) {
 function generateSessions(dateStr: string): Session[] {
   const seed = dateStr.split("-").reduce((a, b) => a + parseInt(b), 0);
   const rand = seededRandom(seed);
-
-  const sessionCount = 8 + Math.floor(rand() * 3);
   const sessions: Session[] = [];
-  const startHour = 8;
 
-  for (let i = 0; i < sessionCount; i++) {
-    const hour = startHour + i;
-    const diff = difficulties[Math.floor(rand() * 3)];
-    const capacity = diff === "상급" ? 17 : 25;
-    const tagCount = 1 + Math.floor(rand() * 3);
-    const tags: WaveTag[] = [];
-    for (let t = 0; t < tagCount; t++) {
-      const tag = waveTags[Math.floor(rand() * waveTags.length)];
-      if (!tags.includes(tag)) tags.push(tag);
+  for (const time of TIME_SLOTS) {
+    const tags = getWaveTags(dateStr, time);
+
+    for (const { name, capacity } of DIFFICULTIES) {
+      const leftRemaining  = Math.floor(rand() * (capacity + 1));
+      const rightRemaining = Math.floor(rand() * (capacity + 1));
+
+      // 초급 세션에 레슨 블록 (30% 확률)
+      let lesson: LessonBlock | undefined;
+      if (name === "초급" && rand() < 0.3) {
+        const coveOptions: (null | "left" | "right")[] = [null, "left", "right"];
+        lesson = {
+          remaining: Math.floor(rand() * 15),
+          capacity: 15,
+          cove: coveOptions[Math.floor(rand() * 3)],
+        };
+      }
+
+      sessions.push({
+        id:         `${dateStr}-${time}-${name}`,
+        time,
+        difficulty: name,
+        waveTags:   tags,
+        leftCove:   { remaining: leftRemaining,  capacity },
+        rightCove:  { remaining: rightRemaining, capacity },
+        lesson,
+      });
     }
-
-    const leftRemaining = Math.floor(rand() * (capacity + 1));
-    const rightRemaining = Math.floor(rand() * (capacity + 1));
-
-    let lesson: LessonBlock | undefined;
-    if (diff === "초급" && rand() < 0.35) {
-      const lessonRemaining = Math.floor(rand() * 16);
-      const coveOptions: (null | "left" | "right")[] = [null, "left", "right"];
-      const cove = coveOptions[Math.floor(rand() * 3)];
-      lesson = { remaining: lessonRemaining, capacity: 15, cove };
-    }
-
-    sessions.push({
-      id: `${dateStr}-${i}`,
-      time: `${hour.toString().padStart(2, "0")}:00`,
-      difficulty: diff,
-      waveTags: tags,
-      leftCove: { remaining: leftRemaining, capacity },
-      rightCove: { remaining: rightRemaining, capacity },
-      lesson,
-    });
   }
 
   return sessions;
@@ -100,26 +142,24 @@ function generateForecast(spotId: string): SpotForecast {
   const rand = seededRandom(seed);
 
   const statuses: SpotCondition["status"][] = ["좋음", "보통", "나쁨"];
-  const status = statuses[Math.floor(rand() * 3)];
   const bestHour = 6 + Math.floor(rand() * 12);
 
   const condition: SpotCondition = {
-    status,
-    bestTime: `${bestHour}:00 ~ ${bestHour + 2}:00`,
-    waveHeight: Math.round((0.3 + rand() * 2.5) * 10) / 10,
-    wavePeriod: Math.round((5 + rand() * 10) * 10) / 10,
-    windSpeed: Math.round((1 + rand() * 15) * 10) / 10,
-    windDirection: windDirs[Math.floor(rand() * windDirs.length)],
-    waterTemp: Math.round((14 + rand() * 12) * 10) / 10,
+    status:         statuses[Math.floor(rand() * 3)],
+    bestTime:       `${bestHour}:00 ~ ${bestHour + 2}:00`,
+    waveHeight:     Math.round((0.3 + rand() * 2.5) * 10) / 10,
+    wavePeriod:     Math.round((5   + rand() * 10)  * 10) / 10,
+    windSpeed:      Math.round((1   + rand() * 15)  * 10) / 10,
+    windDirection:  windDirs[Math.floor(rand() * windDirs.length)],
+    waterTemp:      Math.round((14  + rand() * 12)  * 10) / 10,
   };
 
   const forecast: ForecastPoint[] = [];
   const now = startOfDay(new Date());
   for (let d = 0; d < 7; d++) {
     for (let h = 0; h < 24; h += 6) {
-      const date = addDays(now, d);
       forecast.push({
-        time: `${format(date, "MM/dd")} ${h.toString().padStart(2, "0")}시`,
+        time:   `${format(addDays(now, d), "MM/dd")} ${String(h).padStart(2, "0")}시`,
         height: Math.round((0.2 + rand() * 2.8) * 10) / 10,
       });
     }
@@ -128,17 +168,70 @@ function generateForecast(spotId: string): SpotForecast {
   return { condition, forecast };
 }
 
-export function fetchSessions(date: Date): Promise<Session[]> {
-  const dateStr = format(date, "yyyy-MM-dd");
-  return Promise.resolve(generateSessions(dateStr));
+// ── Supabase row → Session 변환 ───────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToSession(row: any): Session {
+  return {
+    id:         `${row.pick_datetime}-${row.item_idx}`,
+    time:       row.time as string,
+    difficulty: row.difficulty as Difficulty,
+    waveTags:   (row.wave_tags ?? []) as WaveTag[],
+    leftCove:   { remaining: row.left_remaining  ?? 0, capacity: row.left_capacity  ?? 0 },
+    rightCove:  { remaining: row.right_remaining ?? 0, capacity: row.right_capacity ?? 0 },
+    lesson: row.sec_type === "70"
+      ? {
+          remaining: row.lesson_remaining ?? 0,
+          capacity:  row.lesson_capacity  ?? 0,
+          cove: row.lesson_cove_side === "좌측" ? "left"
+              : row.lesson_cove_side === "우측" ? "right"
+              : null,
+        }
+      : undefined,
+  };
 }
 
+// ── 공개 API ─────────────────────────────────────────────────────────
+
+/**
+ * 세션 조회
+ * - Supabase 환경변수 설정 시: DB에서 실데이터
+ * - 미설정 시: mock 데이터 (로컬 개발 / Vercel 테스트 배포)
+ */
+export async function fetchSessions(date: Date): Promise<Session[]> {
+  const dateStr = format(date, "yyyy-MM-dd");
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("pick_date", dateStr)
+        .order("pick_datetime");
+
+      if (!error && data && data.length > 0) {
+        return data.map(rowToSession);
+      }
+    } catch {
+      // Supabase 실패 시 mock으로 fallback
+    }
+  }
+
+  return generateSessions(dateStr);
+}
+
+/**
+ * 서핑스팟 예보 조회 (현재 mock 전용)
+ */
 export function fetchForecast(spotId: string): Promise<SpotForecast> {
   return Promise.resolve(generateForecast(spotId));
 }
 
+// ── 상수 ─────────────────────────────────────────────────────────────
+
 export const SPOTS = [
-  "죽도", "인구", "기사문", "송정", "다대포", "중문", "이호테우", "만리포", "몽산포", "봉포",
+  "죽도", "인구", "기사문", "송정", "다대포",
+  "중문", "이호테우", "만리포", "몽산포", "봉포",
 ] as const;
 
 export const WAVE_TAG_LEGEND: Record<WaveTag, string> = {
