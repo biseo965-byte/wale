@@ -8,8 +8,10 @@ __pycache__
 *.pyc
 
 # 환경변수 (Supabase 키 등 민감 정보)
+.env
 .env.local
 .env.*.local
+wpbot/.env
 
 # 에디터
 .vscode/*
