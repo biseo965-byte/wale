@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Waves, MapPin } from "lucide-react";
+import { Waves, MapPin, Car, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import WavePark from "@/components/WavePark";
 
@@ -9,8 +9,8 @@ export default function Index() {
   const [tab, setTab]               = useState<"wavepark">("wavepark");
   const [displayDate, setDisplayDate] = useState<Date>(new Date());
 
-  const handleSurfSpotClick = () => {
-    toast("서핑스팟은 추후 오픈 예정이에요 🏄", {
+  const handleComingSoon = (name: string) => {
+    toast(`${name}은 추후 오픈 예정이에요`, {
       description: "조금만 기다려 주세요!",
       duration: 2500,
     });
@@ -71,11 +71,29 @@ export default function Index() {
 
             {/* 서핑스팟 탭 — 비활성화 */}
             <button
-              onClick={handleSurfSpotClick}
+              onClick={() => handleComingSoon("서핑스팟")}
               className="flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors text-muted-foreground/40"
             >
               <MapPin className="w-5 h-5" />
               <span className="text-xs font-medium">서핑스팟</span>
+            </button>
+
+            {/* 카풀 탭 — 비활성화 */}
+            <button
+              onClick={() => handleComingSoon("카풀")}
+              className="flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors text-muted-foreground/40"
+            >
+              <Car className="w-5 h-5" />
+              <span className="text-xs font-medium">카풀</span>
+            </button>
+
+            {/* 중고 장터 탭 — 비활성화 */}
+            <button
+              onClick={() => handleComingSoon("중고 장터")}
+              className="flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors text-muted-foreground/40"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              <span className="text-xs font-medium">중고 장터</span>
             </button>
           </div>
           {/* Safe area padding */}

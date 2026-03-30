@@ -26,15 +26,45 @@ interface WaveParkProps {
   onDateChange?: (date: Date) => void;
 }
 
+// 레슨 시간 + 1시간 → 병합 대상 자유서핑 시간
+function addOneHour(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  return `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// 레슨 세션을 해당 자유서핑 세션(+1시간, 초급)에 병합하고 독립 레슨 세션 제거
+function mergeAndFilterSessions(raw: Session[]): Session[] {
+  const lessonSessions = raw.filter((s) => s.lesson !== undefined);
+  const freeSurfs      = raw.filter((s) => s.lesson === undefined);
+
+  return freeSurfs.map((session) => {
+    if (session.difficulty !== "초급") return session;
+
+    const mergeLesson = lessonSessions.find(
+      (l) => addOneHour(l.time) === session.time
+    );
+    if (!mergeLesson?.lesson) return session;
+
+    // 좌코브 → 레슨, 우코브 → 자유서핑 유지
+    return {
+      ...session,
+      lesson: mergeLesson.lesson,
+      leftCove: {
+        remaining: mergeLesson.lesson.remaining,
+        capacity:  mergeLesson.lesson.capacity,
+      },
+    };
+  });
+}
+
 function StatusBadge({ remaining, capacity }: { remaining: number; capacity: number }) {
   if (remaining === 0) return <span className="text-xs font-semibold text-danger">마감</span>;
-  if (remaining <= 5) return <span className="text-xs font-semibold text-warning">마감임박</span>;
   return <span className="text-xs text-muted-foreground">{remaining}/{capacity}</span>;
 }
 
 function CoveBar({ label, remaining, capacity }: { label: string; remaining: number; capacity: number }) {
-  const pct = ((capacity - remaining) / capacity) * 100;
-  const barColor = remaining === 0 ? "bg-danger" : remaining <= 5 ? "bg-warning" : "bg-primary";
+  const pct      = capacity > 0 ? ((capacity - remaining) / capacity) * 100 : 0;
+  const barColor = remaining === 0 ? "bg-danger" : "bg-primary";
   return (
     <div className="flex-1">
       <div className="flex items-center justify-between mb-1">
@@ -48,23 +78,24 @@ function CoveBar({ label, remaining, capacity }: { label: string; remaining: num
   );
 }
 
-function LessonInfo({ lesson }: { lesson: NonNullable<Session["lesson"]> }) {
-  const coveText = lesson.cove
-    ? `${lesson.cove === "left" ? "좌코브" : "우코브"} 진행`
-    : "레슨 예정(코브 미정)";
-
+function LessonCoveBar({ lesson }: { lesson: NonNullable<Session["lesson"]> }) {
+  const pct = lesson.capacity > 0
+    ? ((lesson.capacity - lesson.remaining) / lesson.capacity) * 100
+    : 0;
   return (
-    <div className="mt-2 p-2.5 rounded-xl bg-emerald-light/50 border border-emerald/20">
-      <div className="flex items-center gap-1.5 mb-1">
-        <BookOpen className="w-3.5 h-3.5 text-emerald" />
-        <span className="text-xs font-semibold text-emerald">라인업 레슨</span>
+    <div className="flex-1">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1">
+          <BookOpen className="w-3 h-3 text-emerald" />
+          <span className="text-xs text-emerald font-medium">라인업레슨</span>
+        </div>
+        <StatusBadge remaining={lesson.remaining} capacity={lesson.capacity} />
       </div>
-      <div className="flex items-center justify-between text-xs text-foreground">
-        <span>{coveText}</span>
-        <span className="text-muted-foreground">
-          {lesson.remaining}/{lesson.capacity}명
-          {lesson.cove && " · 실질 정원 10명"}
-        </span>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all bg-emerald"
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -76,7 +107,7 @@ function SessionCard({ session }: { session: Session }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-base font-bold text-foreground">{session.time}</span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${difficultyColor[session.difficulty]}`}>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${difficultyColor[session.difficulty] ?? ""}`}>
             {session.difficulty}
           </span>
         </div>
@@ -94,32 +125,39 @@ function SessionCard({ session }: { session: Session }) {
 
       <div className="flex items-center gap-3">
         <Users className="w-4 h-4 text-muted-foreground shrink-0" />
-        <CoveBar label="좌코브" remaining={session.leftCove.remaining} capacity={session.leftCove.capacity} />
-        <CoveBar label="우코브" remaining={session.rightCove.remaining} capacity={session.rightCove.capacity} />
+        {session.lesson ? (
+          // 레슨 병합: 좌=레슨, 우=자유서핑
+          <>
+            <LessonCoveBar lesson={session.lesson} />
+            <CoveBar label="우코브" remaining={session.rightCove.remaining} capacity={session.rightCove.capacity} />
+          </>
+        ) : (
+          // 일반: 좌/우 자유서핑
+          <>
+            <CoveBar label="좌코브" remaining={session.leftCove.remaining} capacity={session.leftCove.capacity} />
+            <CoveBar label="우코브" remaining={session.rightCove.remaining} capacity={session.rightCove.capacity} />
+          </>
+        )}
       </div>
-
-      {session.lesson && <LessonInfo lesson={session.lesson} />}
     </div>
   );
 }
 
 export default function WavePark({ onDateChange }: WaveParkProps) {
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [sessions, setSessions]         = useState<Session[]>([]);
-  const [lastUpdated, setLastUpdated]   = useState<string | null>(null);
+  const [selectedDate, setSelectedDate]     = useState<Date | null>(null);
+  const [sessions, setSessions]             = useState<Session[]>([]);
+  const [lastUpdated, setLastUpdated]       = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 날짜 선택 핸들러 — 부모에도 전달
   const handleDateSelect = (d: Date) => {
     setSelectedDate(d);
     onDateChange?.(d);
   };
 
-  // 데이터 있는 날짜 로드
   useEffect(() => {
     fetchAvailableDates().then((dateStrs) => {
-      const dates = dateStrs.map((s) => parseISO(s));
+      const dates   = dateStrs.map((s) => parseISO(s));
       setAvailableDates(dates);
 
       const today    = new Date();
@@ -134,25 +172,22 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 선택 날짜 변경 시 세션 + 갱신시각 로드
   useEffect(() => {
     if (!selectedDate) return;
 
     setSessions([]);
     setLastUpdated(null);
 
-    fetchSessions(selectedDate).then(setSessions);
+    fetchSessions(selectedDate).then((raw) => setSessions(mergeAndFilterSessions(raw)));
     fetchLastUpdated(selectedDate).then(setLastUpdated);
   }, [selectedDate]);
 
-  // 선택 날짜로 스크롤
   useEffect(() => {
     if (!scrollRef.current || !selectedDate) return;
     const active = scrollRef.current.querySelector("[data-active='true']") as HTMLElement;
     if (active) active.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
   }, [availableDates, selectedDate]);
 
-  // 갱신시각 포맷 — 오늘이면 "HH:mm", 다른 날이면 "M/d HH:mm"
   const updatedLabel = (() => {
     if (!lastUpdated) return null;
     const d = new Date(lastUpdated);
@@ -172,7 +207,7 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* 데이터 있는 날짜 chips */}
+      {/* 날짜 chips */}
       <div ref={scrollRef} className="flex gap-2 overflow-x-auto hide-scrollbar py-1 -mx-4 px-4">
         {availableDates.map((d) => {
           const active    = selectedDate ? isSameDay(d, selectedDate) : false;
