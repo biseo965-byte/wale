@@ -55,8 +55,13 @@ function mergeAndFilterSessions(raw: Session[]): Session[] {
 }
 
 function StatusBadge({ remaining, capacity }: { remaining: number; capacity: number }) {
-  if (remaining === 0) return <span className="text-xs font-semibold text-danger">마감</span>;
-  return <span className="text-xs text-muted-foreground">{remaining}/{capacity}</span>;
+  if (remaining === 0) return <span className="text-base font-bold text-danger">마감</span>;
+  return (
+    <span className="text-base font-bold">
+      <span className="text-foreground">{remaining}</span>
+      <span className="text-muted-foreground font-normal text-sm">/{capacity}</span>
+    </span>
+  );
 }
 
 function CoveBar({ label, remaining, capacity }: { label: string; remaining: number; capacity: number }) {
@@ -172,12 +177,32 @@ function SessionSkeleton() {
   );
 }
 
+// 마지막 세션(17:00) + 2시간 = 19:00 이후엔 오늘 숨김, 과거 날짜도 숨김
+const LAST_SESSION_HOUR = 17;
+const HIDE_AFTER_OFFSET = 2; // hours
+
+function getVisibleDates(dates: Date[]): Date[] {
+  const now      = new Date();
+  const todayStr = format(now, "yyyy-MM-dd");
+
+  const cutoff = new Date(now);
+  cutoff.setHours(LAST_SESSION_HOUR + HIDE_AFTER_OFFSET, 0, 0, 0);
+  const todayExpired = now >= cutoff;
+
+  return dates.filter((d) => {
+    const dStr = format(d, "yyyy-MM-dd");
+    if (dStr < todayStr) return false;
+    if (dStr === todayStr && todayExpired) return false;
+    return true;
+  });
+}
+
 export default function WavePark({ onDateChange }: WaveParkProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 데이터 있는 날짜 목록 — 새로고침 전까지 캐시 유지
-  const { data: availableDates = [] } = useQuery({
+  const { data: rawDates = [] } = useQuery({
     queryKey: ["availableDates"],
     queryFn: async () => {
       const dateStrs = await fetchAvailableDates();
@@ -186,6 +211,9 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
     staleTime: Infinity,
     gcTime: Infinity,
   });
+
+  // 과거 날짜 및 당일 마감 후 필터링
+  const availableDates = getVisibleDates(rawDates);
 
   // 초기 날짜 설정
   useEffect(() => {

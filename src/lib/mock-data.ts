@@ -170,15 +170,23 @@ function generateForecast(spotId: string): SpotForecast {
 
 // ── Supabase row → Session 변환 ───────────────────────────────────────
 
+// 난이도별 코브당 고정 최대 정원
+const COVE_CAPACITY: Record<string, number> = {
+  초급: 25,
+  중급: 25,
+  상급: 17,
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToSession(row: any): Session {
+  const coveCap = COVE_CAPACITY[row.difficulty as string] ?? (row.left_capacity ?? 25);
   return {
     id:         `${row.pick_datetime}-${row.item_idx}`,
     time:       row.time as string,
     difficulty: row.difficulty as Difficulty,
     waveTags:   (row.wave_tags ?? []) as WaveTag[],
-    leftCove:   { remaining: row.left_remaining  ?? 0, capacity: row.left_capacity  ?? 0 },
-    rightCove:  { remaining: row.right_remaining ?? 0, capacity: row.right_capacity ?? 0 },
+    leftCove:   { remaining: row.left_remaining  ?? 0, capacity: coveCap },
+    rightCove:  { remaining: row.right_remaining ?? 0, capacity: coveCap },
     lesson: row.sec_type === "70"
       ? {
           remaining: row.lesson_remaining ?? 0,
