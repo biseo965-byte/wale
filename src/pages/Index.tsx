@@ -4,9 +4,10 @@ import { ko } from "date-fns/locale";
 import { Waves, MapPin, Car, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import WavePark from "@/components/WavePark";
+import FundingSession from "@/components/FundingSession";
 
 export default function Index() {
-  const [tab, setTab]               = useState<"wavepark">("wavepark");
+  const [tab, setTab]               = useState<"wavepark" | "funding">("wavepark");
   const [displayDate, setDisplayDate] = useState<Date>(new Date());
 
   const handleComingSoon = (name: string) => {
@@ -52,7 +53,8 @@ export default function Index() {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto px-4 py-4 pb-24">
-          <WavePark onDateChange={setDisplayDate} />
+          {tab === "wavepark" && <WavePark onDateChange={setDisplayDate} />}
+          {tab === "funding" && <FundingSession />}
         </main>
 
         {/* Bottom tabs */}
@@ -69,13 +71,15 @@ export default function Index() {
               <span className="text-xs font-medium">웨이브파크</span>
             </button>
 
-            {/* 서핑스팟 탭 — 비활성화 */}
+            {/* 펀딩세션 탭 */}
             <button
-              onClick={() => handleComingSoon("서핑스팟")}
-              className="flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors text-muted-foreground/40"
+              onClick={() => setTab("funding")}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors ${
+                tab === "funding" ? "text-primary" : "text-muted-foreground"
+              }`}
             >
               <MapPin className="w-5 h-5" />
-              <span className="text-xs font-medium">서핑스팟</span>
+              <span className="text-xs font-medium">펀딩세션</span>
             </button>
 
             {/* 카풀 탭 — 비활성화 */}
