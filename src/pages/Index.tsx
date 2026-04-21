@@ -1,14 +1,85 @@
 import { useState } from "react";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
-import { Waves, MapPin, Car, ShoppingBag } from "lucide-react";
+import { Waves, MapPin, Car, ShoppingBag, X } from "lucide-react";
 import { toast } from "sonner";
 import WavePark from "@/components/WavePark";
 import FundingSession from "@/components/FundingSession";
+import wavelessLogo from "@/waleless.jpg";
+import hmcLogo from "@/hmc_logo.jpg";
+
+// ── 스폰서 데이터 ─────────────────────────────────────────────────────
+
+interface Sponsor {
+  id: string;
+  logo: string;
+  alt: string;
+  title: string;
+  desc: string;
+}
+
+const SPONSORS: Sponsor[] = [
+  {
+    id: "waveless",
+    logo: wavelessLogo,
+    alt: "Waveless",
+    title: "Waveless 아일랜드",
+    desc: "",
+  },
+  {
+    id: "hmc",
+    logo: hmcLogo,
+    alt: "HMC",
+    title: "Help Me Club",
+    desc: "초보 서퍼들의 좌충우돌 모임",
+  },
+];
+
+// ── 스폰서 모달 ───────────────────────────────────────────────────────
+
+function SponsorModal({ sponsor, onClose }: { sponsor: Sponsor; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      {/* 딤 */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+      {/* 카드 */}
+      <div
+        className="relative z-10 w-72 bg-card rounded-2xl shadow-xl border border-border p-6 flex flex-col items-center gap-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 닫기 버튼 */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* 로고 이미지 */}
+        <img
+          src={sponsor.logo}
+          alt={sponsor.alt}
+          className="w-40 h-40 object-contain rounded-xl"
+        />
+
+        {/* 텍스트 */}
+        <div className="text-center">
+          <p className="text-base font-bold text-foreground mb-1">{sponsor.title}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{sponsor.desc}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 메인 컴포넌트 ─────────────────────────────────────────────────────
 
 export default function Index() {
   const [tab, setTab]               = useState<"wavepark" | "funding">("wavepark");
   const [displayDate, setDisplayDate] = useState<Date>(new Date());
+  const [activeSponsor, setActiveSponsor] = useState<Sponsor | null>(null);
 
   const handleComingSoon = (name: string) => {
     toast(`${name}은 추후 오픈 예정이에요`, {
@@ -39,15 +110,22 @@ export default function Index() {
             </div>
           </div>
 
-          {/* 선택된 날짜 — 날짜 칩 선택 시 업데이트 */}
-          <div className="text-right">
-            <span className="text-sm font-medium text-foreground">
-              {format(displayDate, "M월 d일 (EEE)", { locale: ko })}
-            </span>
-            <br />
-            <span className="text-[11px] text-muted-foreground">
-              {format(displayDate, "yyyy")}
-            </span>
+          {/* 스폰서 로고 */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground/60 font-medium">sponsored by.</span>
+            {SPONSORS.map((sponsor) => (
+              <button
+                key={sponsor.id}
+                onClick={() => setActiveSponsor(sponsor)}
+                className="transition-opacity hover:opacity-70 active:opacity-50"
+              >
+                <img
+                  src={sponsor.logo}
+                  alt={sponsor.alt}
+                  className="h-9 w-auto object-contain rounded-sm"
+                />
+              </button>
+            ))}
           </div>
         </header>
 
@@ -104,6 +182,11 @@ export default function Index() {
           <div className="h-[env(safe-area-inset-bottom)]" />
         </nav>
       </div>
+
+      {/* 스폰서 모달 */}
+      {activeSponsor && (
+        <SponsorModal sponsor={activeSponsor} onClose={() => setActiveSponsor(null)} />
+      )}
     </div>
   );
 }
