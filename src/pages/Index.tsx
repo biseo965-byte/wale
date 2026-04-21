@@ -5,6 +5,7 @@ import WavePark from "@/components/WavePark";
 import FundingSession from "@/components/FundingSession";
 import wavelessLogo from "@/waleless.jpg";
 import hmcLogo from "@/hmc_logo.jpg";
+import seraKimLogo from "@/seraKim.png";
 
 // ── 스폰서 데이터 ─────────────────────────────────────────────────────
 
@@ -30,6 +31,13 @@ const SPONSORS: Sponsor[] = [
     alt: "HMC",
     title: "Help Me Club",
     desc: "초보 서퍼들의 좌충우돌 모임",
+  },
+  {
+    id: "seraKim",
+    logo: seraKimLogo,
+    alt: "SeraKim",
+    title: "Sera Kim",
+    desc: "insta: @kim_se_tak",
   },
 ];
 
