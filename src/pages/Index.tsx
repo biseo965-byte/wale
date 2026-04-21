@@ -130,7 +130,7 @@ export default function Index() {
                 <img
                   src={sponsor.logo}
                   alt={sponsor.alt}
-                  className="h-9 w-auto object-contain rounded-sm"
+                  className="w-9 h-9 object-cover rounded-sm"
                 />
               </button>
             ))}
