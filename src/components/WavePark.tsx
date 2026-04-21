@@ -301,8 +301,22 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
         })}
       </div>
 
-      {/* 마지막 갱신시각 + 안내 문구 */}
-      <div className="flex flex-col items-end gap-0.5 pr-1">
+      {/* 선택 날짜 + 마지막 갱신시각 */}
+      <div className="flex items-center justify-between px-1">
+        {/* 선택된 날짜 */}
+        <div className="flex flex-col leading-tight">
+          {selectedDate && (
+            <>
+              <span className="text-sm font-bold text-foreground">
+                {format(selectedDate, "M월 d일 (EEE)", { locale: ko })}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {format(selectedDate, "yyyy")}
+              </span>
+            </>
+          )}
+        </div>
+        {/* 갱신 시각 */}
         <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
           <RefreshCw className="w-3 h-3" />
           {updatedLabel
