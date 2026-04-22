@@ -15,6 +15,7 @@ interface Sponsor {
   alt: string;
   title: string;
   desc: string;
+  link?: string;
 }
 
 const SPONSORS: Sponsor[] = [
@@ -23,7 +24,8 @@ const SPONSORS: Sponsor[] = [
     logo: wavelessLogo,
     alt: "Waveless",
     title: "Waveless 아일랜드",
-    desc: "",
+    desc: "@waveless.island.official",
+    link: "https://www.instagram.com/waveless.island.official?igsh=MTB5Y2dsNmpvbG1qMw==",
   },
   {
     id: "hmc",
@@ -31,13 +33,15 @@ const SPONSORS: Sponsor[] = [
     alt: "HMC",
     title: "Help Me Club",
     desc: "초보 서퍼들의 좌충우돌 모임",
+    link: "https://www.instagram.com/helpme_club?igsh=bXlycHdoajhxcDJu",
   },
   {
     id: "seraKim",
     logo: seraKimLogo,
     alt: "SeraKim",
     title: "Sera Kim",
-    desc: "insta: @kim_se_tak",
+    desc: "@kim_se_tak",
+    link: "https://www.instagram.com/kim_se_tak?igsh=MXhpZ2pmdjBrMWF6ag==",
   },
 ];
 
@@ -75,7 +79,11 @@ function SponsorModal({ sponsor, onClose }: { sponsor: Sponsor; onClose: () => v
         {/* 텍스트 */}
         <div className="text-center">
           <p className="text-base font-bold text-foreground mb-1">{sponsor.title}</p>
-          <p className="text-sm text-muted-foreground leading-relaxed">{sponsor.desc}</p>
+          {sponsor.desc && (
+            sponsor.link
+              ? <a href={sponsor.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline underline-offset-2 leading-relaxed">{sponsor.desc}</a>
+              : <p className="text-sm text-muted-foreground leading-relaxed">{sponsor.desc}</p>
+          )}
         </div>
       </div>
     </div>
@@ -105,7 +113,7 @@ export default function Index() {
           <div className="flex items-center gap-2.5">
             <img
               src="/logo.png"
-              alt="웨일 로고"
+              alt="웨팍메이트 로고"
               className="w-10 h-10 rounded-xl object-cover"
             />
             <div className="flex flex-col leading-tight">
@@ -113,8 +121,9 @@ export default function Index() {
                 서퍼를 위한
               </span>
               <span className="text-lg font-bold text-foreground leading-none">
-                웨일
+                웨팍메이트
               </span>
+              <span className="text-[9px] text-muted-foreground/60">named by. 전재영</span>
             </div>
           </div>
 
