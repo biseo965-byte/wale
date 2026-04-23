@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { format, parseISO, isSameDay, isToday } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Users } from "lucide-react";
+import { Users, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Difficulty } from "@/lib/mock-data";
@@ -229,6 +229,15 @@ export default function FundingSession() {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* 안내 배너 */}
+      <div className="flex items-start gap-2 bg-ocean-light/60 border border-ocean/20 rounded-xl px-3 py-2.5">
+        <Info className="w-3.5 h-3.5 text-ocean shrink-0 mt-0.5" />
+        <p className="text-[11px] text-ocean leading-relaxed">
+          이용일 <span className="font-bold">2일 전 16시</span> 기준 리프서핑 예약률이{" "}
+          <span className="font-bold">30% 이상</span>일 시 세션이 오픈됩니다.
+        </p>
+      </div>
+
       {/* 날짜 chips */}
       <div className="flex gap-2 overflow-x-auto hide-scrollbar py-1 -mx-4 px-4">
         {isLoading

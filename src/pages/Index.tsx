@@ -93,7 +93,7 @@ function SponsorModal({ sponsor, onClose }: { sponsor: Sponsor; onClose: () => v
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────
 
 export default function Index() {
-  const [tab, setTab]               = useState<"wavepark" | "funding">("wavepark");
+  const [tab, setTab]               = useState<"wavepark" | "funding" | "carpool">("wavepark");
   const [displayDate, setDisplayDate] = useState<Date>(new Date());
   const [activeSponsor, setActiveSponsor] = useState<Sponsor | null>(null);
 
@@ -150,6 +150,21 @@ export default function Index() {
         <main className="flex-1 overflow-y-auto px-4 py-4 pb-24">
           {tab === "wavepark" && <WavePark onDateChange={setDisplayDate} />}
           {tab === "funding" && <FundingSession />}
+          {tab === "carpool" && (
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center px-6">
+              <p className="text-base font-semibold text-foreground">
+                이 곳에 들어가면 좋을 기능을 추천해주세요!
+              </p>
+              <a
+                href="https://open.kakao.com/o/svHiFBeb"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary underline underline-offset-2"
+              >
+                카카오 오픈채팅 바로가기
+              </a>
+            </div>
+          )}
         </main>
 
         {/* Bottom tabs */}
@@ -177,13 +192,15 @@ export default function Index() {
               <span className="text-xs font-medium">펀딩세션</span>
             </button>
 
-            {/* 카풀 탭 — 비활성화 */}
+            {/* 카풀 탭 */}
             <button
-              onClick={() => handleComingSoon("카풀")}
-              className="flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors text-muted-foreground/40"
+              onClick={() => setTab("carpool")}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors ${
+                tab === "carpool" ? "text-primary" : "text-muted-foreground"
+              }`}
             >
               <Car className="w-5 h-5" />
-              <span className="text-xs font-medium">카풀</span>
+              <span className="text-xs font-medium">빈 탭</span>
             </button>
 
             {/* 중고 장터 탭 — 비활성화 */}
