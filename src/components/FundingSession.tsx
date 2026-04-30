@@ -8,7 +8,8 @@ import type { Difficulty } from "@/lib/mock-data";
 
 // ── 상수 (DB에 없는 값) ───────────────────────────────────────────────
 
-const CAPACITY = 60; // 정원
+const CAPACITY_DEFAULT = 60; // 초급/중급 정원
+const CAPACITY_ADVANCED = 40; // 상급 정원
 const TARGET   = 18; // 펀딩 달성 목표 인원
 
 // ── DB 타입 ───────────────────────────────────────────────────────────
@@ -59,17 +60,19 @@ function deriveStatus(current: number, target: number, capacity: number): Fundin
 }
 
 function rowToItem(row: FundingRow): FundingItem {
-  const current = CAPACITY - row.remaining;
+  const difficulty = parseDifficulty(row.item_name);
+  const capacity   = difficulty === "상급" ? CAPACITY_ADVANCED : CAPACITY_DEFAULT;
+  const current    = capacity - row.remaining;
   return {
-    id:         row.id,
+    id: row.id,
     title:      parseTitle(row.item_name),
     date:       row.pick_date,
     time:       row.time,
-    difficulty: parseDifficulty(row.item_name),
+    difficulty,
     current,
     target:     TARGET,
-    capacity:   CAPACITY,
-    status:     deriveStatus(current, TARGET, CAPACITY),
+    capacity,
+    status:     deriveStatus(current, TARGET, capacity),
   };
 }
 
@@ -77,9 +80,11 @@ function rowToItem(row: FundingRow): FundingItem {
 
 async function fetchFundingSessions(): Promise<FundingItem[]> {
   if (!supabase) return [];
+  const today = format(new Date(), "yyyy-MM-dd");
   const { data, error } = await supabase
     .from("funding_sessions")
     .select("*")
+    .gte("pick_date", today)
     .order("pick_date", { ascending: true })
     .order("time",      { ascending: true });
   if (error) throw error;
