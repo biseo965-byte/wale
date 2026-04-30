@@ -8,9 +8,10 @@ import type { Difficulty } from "@/lib/mock-data";
 
 // ── 상수 (DB에 없는 값) ───────────────────────────────────────────────
 
-const CAPACITY_DEFAULT = 60; // 초급/중급 정원
+const CAPACITY_DEFAULT  = 60; // 초급/중급 정원
 const CAPACITY_ADVANCED = 40; // 상급 정원
-const TARGET   = 18; // 펀딩 달성 목표 인원
+const TARGET_DEFAULT    = 18; // 초급/중급 달성 목표 (정원의 30%)
+const TARGET_ADVANCED   = 12; // 상급 달성 목표 (정원의 30%)
 
 // ── DB 타입 ───────────────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ function deriveStatus(current: number, target: number, capacity: number): Fundin
 function rowToItem(row: FundingRow): FundingItem {
   const difficulty = parseDifficulty(row.item_name);
   const capacity   = difficulty === "상급" ? CAPACITY_ADVANCED : CAPACITY_DEFAULT;
+  const target     = difficulty === "상급" ? TARGET_ADVANCED   : TARGET_DEFAULT;
   const current    = capacity - row.remaining;
   return {
     id: row.id,
@@ -70,9 +72,9 @@ function rowToItem(row: FundingRow): FundingItem {
     time:       row.time,
     difficulty,
     current,
-    target:     TARGET,
+    target,
     capacity,
-    status:     deriveStatus(current, TARGET, capacity),
+    status:     deriveStatus(current, target, capacity),
   };
 }
 
