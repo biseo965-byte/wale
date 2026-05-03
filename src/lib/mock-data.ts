@@ -272,9 +272,11 @@ export async function fetchLastUpdated(date: Date): Promise<string> {
 export async function fetchAvailableDates(): Promise<string[]> {
   if (supabase) {
     try {
+      const today = format(new Date(), "yyyy-MM-dd");
       const { data, error } = await supabase
-        .from("zone_slots")
+        .from("sessions")
         .select("pick_date")
+        .gte("pick_date", today)
         .order("pick_date");
 
       if (!error && data && data.length > 0) {
