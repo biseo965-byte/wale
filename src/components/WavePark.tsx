@@ -201,15 +201,15 @@ export default function WavePark({ onDateChange }: WaveParkProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 데이터 있는 날짜 목록 — 새로고침 전까지 캐시 유지
+  // 데이터 있는 날짜 목록 — 5분마다 갱신
   const { data: rawDates = [] } = useQuery({
     queryKey: ["availableDates"],
     queryFn: async () => {
       const dateStrs = await fetchAvailableDates();
       return dateStrs.map((s) => parseISO(s));
     },
-    staleTime: Infinity,
-    gcTime: Infinity,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   // 과거 날짜 및 당일 마감 후 필터링
